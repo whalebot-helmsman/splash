@@ -1,12 +1,18 @@
+# syntax=docker/dockerfile:experimental
+
+ARG splash_as=binary
+
+# =====================
+
 FROM byrnedo/alpine-curl as qt-downloader
 COPY dockerfiles/splash/download-qt-installer.sh /tmp/download-qt-installer.sh
 RUN /tmp/download-qt-installer.sh /tmp/qt-installer.run
 
 # =====================
-#
-#FROM byrnedo/alpine-curl as qtwebkit-source-downloader
-#COPY dockerfiles/splash/download-qtwebkit-source.sh /tmp/download-qtwebkit-source.sh
-#RUN /tmp/download-qtwebkit-source.sh /tmp/qtwebkit.tar.xz
+
+FROM byrnedo/alpine-curl as qtwebkit-source-downloader
+COPY dockerfiles/splash/download-qtwebkit-source.sh /tmp/download-qtwebkit-source.sh
+RUN /tmp/download-qtwebkit-source.sh /tmp/qtwebkit.tar.xz
 
 # =====================
 
@@ -51,6 +57,7 @@ ENV DEBIAN_FRONTEND noninteractive
 COPY --from=qt-downloader /tmp/qt-installer.run /tmp/
 
 ARG DISPLAY
+ENV QT_QPA_PLATFORM=minimal
 
 COPY dockerfiles/splash/qt-installer-noninteractive.qs /tmp/script.qs
 COPY dockerfiles/splash/run-qt-installer.sh /tmp/run-qt-installer.sh
@@ -59,6 +66,9 @@ RUN /tmp/run-qt-installer.sh /tmp/qt-installer.run /tmp/script.qs
 # XXX: this needs to be updated if Qt is updated
 ENV PATH="/opt/qt-5.13/5.13.1/gcc_64/bin:${PATH}"
 
+# =====================
+
+FROM qtbuilder as qtwebkit-binary
 # install qtwebkit
 COPY --from=qtwebkit-downloader /tmp/qtwebkit.7z /tmp/
 COPY dockerfiles/splash/install-qtwebkit.sh /tmp/install-qtwebkit.sh
@@ -66,14 +76,21 @@ RUN /tmp/install-qtwebkit.sh /tmp/qtwebkit.7z
 
 # =====================
 
-#FROM qtbuilder as qtwebkitbuilder
-#COPY --from=qtwebkit-downloader /tmp/qtwebkit.tar.xz /tmp/
-#
-#COPY dockerfiles/splash/install-qtwebkit-build-deps.sh /tmp/install-qtwebkit-build-deps.sh
-#RUN /tmp/install-qtwebkit-build-deps.sh
-#
-#COPY dockerfiles/splash/build-qtwebkit.sh /tmp/build-qtwebkit.sh
-#RUN /tmp/build-qtwebkit.sh /tmp/qtwebkit.tar.xz
+FROM qtbuilder as qtwebkit-source
+COPY --from=qtwebkit-source-downloader /tmp/qtwebkit.tar.xz /tmp/
+
+COPY dockerfiles/splash/install-qtwebkit-build-deps.sh /tmp/install-qtwebkit-build-deps.sh
+RUN /tmp/install-qtwebkit-build-deps.sh
+
+COPY dockerfiles/splash/build-qtwebkit.sh /tmp/build-qtwebkit.sh
+RUN --mount=type=cache,target=/tmp/builds/build /tmp/build-qtwebkit.sh /tmp/qtwebkit.tar.xz
+
+# =====================
+
+FROM qtwebkit-${splash_as} as qtwebkit-holder
+
+# XXX: this needs to be updated if Qt is updated
+RUN mv /opt/qt-5.13/5.13.1/gcc_64 /webkit-libs
 
 # =====================
 
@@ -83,7 +100,7 @@ COPY dockerfiles/splash/install-system-splash-deps.sh /tmp/install-system-splash
 RUN /tmp/install-system-splash-deps.sh
 
 # XXX: this needs to be updated if Qt is updated
-COPY --from=qtbuilder /opt/qt-5.13/5.13.1/gcc_64 /opt/qt-5.13/5.13.1/gcc_64
+COPY --from=qtwebkit-holder /webkit-libs /opt/qt-5.13/5.13.1/gcc_64
 #RUN ls -l /opt/qt-5.13/5.13.0/gcc_64/lib
 ENV PATH="/opt/qt-5.13/5.13.1/gcc_64/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/opt/qt-5.13/5.13.1/gcc_64/lib:$LD_LIBRARY_PATH"
