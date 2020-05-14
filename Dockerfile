@@ -83,6 +83,7 @@ COPY dockerfiles/splash/install-qtwebkit-build-deps.sh /tmp/install-qtwebkit-bui
 RUN /tmp/install-qtwebkit-build-deps.sh
 
 COPY dockerfiles/splash/build-qtwebkit.sh /tmp/build-qtwebkit.sh
+COPY qtwebkit /tmp/builds
 RUN --mount=type=cache,target=/tmp/builds/build /tmp/build-qtwebkit.sh /tmp/qtwebkit.tar.xz
 
 # =====================
