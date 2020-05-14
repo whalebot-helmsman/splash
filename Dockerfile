@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:experimental
 
 ARG splash_as=binary
+ARG SPLASH_BUILD_PARALLEL_JOBS=4
 
 # =====================
 
@@ -77,10 +78,14 @@ RUN /tmp/install-qtwebkit.sh /tmp/qtwebkit.7z
 # =====================
 
 FROM qtbuilder as qtwebkit-source
+
 COPY --from=qtwebkit-source-downloader /tmp/qtwebkit.tar.xz /tmp/
 
 COPY dockerfiles/splash/install-qtwebkit-build-deps.sh /tmp/install-qtwebkit-build-deps.sh
 RUN /tmp/install-qtwebkit-build-deps.sh
+
+ARG SPLASH_BUILD_PARALLEL_JOBS
+ENV SPLASH_BUILD_PARALLEL_JOBS=${SPLASH_BUILD_PARALLEL_JOBS}
 
 COPY dockerfiles/splash/build-qtwebkit.sh /tmp/build-qtwebkit.sh
 COPY qtwebkit /tmp/builds
@@ -109,6 +114,10 @@ ENV LD_LIBRARY_PATH="/opt/qt-5.13/5.13.1/gcc_64/lib:$LD_LIBRARY_PATH"
 # =====================
 
 FROM splash-base as qt5-builder
+
+
+ARG SPLASH_BUILD_PARALLEL_JOBS
+ENV SPLASH_BUILD_PARALLEL_JOBS=${SPLASH_BUILD_PARALLEL_JOBS}
 
 COPY --from=pyqt5-downloader /tmp/sip.tar.gz /tmp/
 COPY --from=pyqt5-downloader /tmp/pyqt5.tar.gz /tmp/

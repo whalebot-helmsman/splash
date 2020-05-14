@@ -14,6 +14,6 @@ fi
 
 mkdir -p build
 cd build
-cmake -G Ninja -DPORT=Qt -DCMAKE_BUILD_TYPE=Release ..
+cmake -G Ninja -j $SPLASH_BUILD_PARALLEL_JOBS -DPORT=Qt -DCMAKE_BUILD_TYPE=Release ..
 ninja
 ninja install
